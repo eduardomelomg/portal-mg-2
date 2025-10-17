@@ -1,0 +1,107 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background-color: #2e3338;
+  color: var(--color-text);
+  height: 100vh;
+  transition: width 0.3s ease;
+  flex-shrink: 0;
+  overflow: hidden;
+  cursor: pointer; /* 👈 agora toda a área mostra o cursor */
+}
+
+
+/* === TOPO === */
+.top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: var(--spacing-md);
+}
+
+/* Botão sanduíche */
+.toggle {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease;
+  margin-top: 1rem;
+  outline: none;
+}
+
+.toggle:focus {
+  outline: none; /* 👈 garante que o foco não desenhe borda */
+  box-shadow: none;
+}
+
+.toggle:hover {
+  color: #facc15;
+}
+
+/* === MENU === */
+.menu {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: var(--spacing-md); /* ícones próximos do sanduíche */
+}
+
+.menuOpen {
+  align-items: flex-start;
+  padding-left: var(--spacing-md);
+}
+
+.menuClosed {
+  align-items: center;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  margin: 8px 0;
+  transition: color 0.2s ease;
+  outline: none;
+}
+
+.menuItem:focus {
+  outline: none; /* 👈 garante que o foco não desenhe borda */
+  box-shadow: none;
+}
+
+.menuItem:hover {
+  color: #facc15;
+}
+
+.menuItemActive {
+  color: #facc15;
+}
+
+.icon {
+  font-size: 20px;
+}
+
+.label {
+  margin-left: var(--spacing-sm);
+  font-size: 14px;
+}
+
+/* === LOGO INFERIOR === */
+.logo {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-md);
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+.logo:hover {
+  transform: scale(1.05);
+}

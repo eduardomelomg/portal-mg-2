@@ -1,0 +1,22 @@
+:root {
+  /* Cores principais */
+  --color-bg: #1c1f22;
+  --color-panel: #2e3338;
+  --color-text: #ffffff;
+  --color-text-muted: #a1a1aa;
+  --color-accent: #facc15;
+
+  /* Espaçamentos padrão */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+
+  /* Bordas */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
