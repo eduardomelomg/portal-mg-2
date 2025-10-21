@@ -18,6 +18,8 @@ type EmpresaData = {
   nome: string;
   cnpj: string | null;
   dominio?: string | null;
+  logoUrl?: string | null;
+  telefone?: string | null;
 } | null;
 
 interface AuthContextType {
@@ -26,6 +28,8 @@ interface AuthContextType {
   cargo: string | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  updateLogoUrl: (url: string) => void;
+  updateUserData: (data: { nome?: string; email?: string }) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,26 +40,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [cargo, setCargo] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // ===== FETCH INICIAL =====
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      console.log("🔄 Iniciando fetchData()...");
+
       try {
-        // 1️⃣ Buscar usuário autenticado
         const { data, error } = await supabase.auth.getUser();
+        console.log("👤 Resultado getUser:", { data, error });
 
         if (error || !data?.user) {
-          console.warn("Nenhum usuário autenticado:", error);
+          console.warn("⚠️ Nenhum usuário logado, redirecionando...");
           setUser(null);
           setEmpresa(null);
           setCargo(null);
+          setLoading(false);
           return;
         }
 
         const u = data.user;
         const nome =
           (u.user_metadata as any)?.full_name ||
-          (u.user_metadata as any)?.name ||
-          (u.email ?? "").split("@")[0] ||
+          u.user_metadata?.name ||
+          u.email?.split("@")[0] ||
           "Usuário";
 
         setUser({
@@ -64,32 +72,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           nome,
         });
 
-        // 2️⃣ Buscar vínculo do usuário com empresa
-        const { data: vinculo, error: vinculoErr } = await supabase
+        console.log("✅ Usuário autenticado:", nome);
+
+        // ===== Busca vínculo empresa =====
+        const { data: vinculo, error: vinculoError } = await supabase
           .from("usuarios_empresas")
           .select("empresa_id, cargo")
           .eq("usuario_id", u.id)
           .eq("ativo", true)
           .single();
 
-        if (vinculoErr) {
-          console.warn("Sem vínculo encontrado:", vinculoErr);
+        console.log("🏢 Vínculo empresa:", { vinculo, vinculoError });
+
+        if (vinculoError || !vinculo) {
+          console.warn("⚠️ Nenhum vínculo ativo encontrado");
           setEmpresa(null);
           setCargo(null);
+          setLoading(false);
           return;
         }
 
         setCargo(vinculo.cargo ?? null);
 
-        // 3️⃣ Buscar dados da empresa
-        const { data: emp, error: empErr } = await supabase
+        // ===== Busca empresa =====
+        const { data: emp, error: empError } = await supabase
           .from("empresas")
-          .select("id, nome, cnpj, dominio")
+          .select("id, nome, cnpj, dominio, logoUrl, telefone")
           .eq("id", vinculo.empresa_id)
           .single();
 
-        if (empErr) {
-          console.error("Erro ao buscar empresa:", empErr);
+        console.log("🏬 Empresa carregada:", { emp, empError });
+
+        if (empError || !emp) {
+          console.error("❌ Erro ao buscar empresa:", empError);
           setEmpresa(null);
         } else {
           setEmpresa({
@@ -97,27 +112,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             nome: emp.nome,
             cnpj: emp.cnpj ?? null,
             dominio: emp.dominio ?? null,
+            logoUrl: emp.logoUrl ?? null,
+            telefone: emp.telefone ?? "",
           });
         }
-      } catch (e) {
-        console.error("Erro inesperado no useAuth:", e);
+      } catch (err) {
+        console.error("🔥 Erro inesperado em fetchData():", err);
       } finally {
+        console.log("🏁 Finalizando fetchData()");
         setLoading(false);
       }
     };
 
     fetchData();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      fetchData();
-    });
+    const { data: authSub } = supabase.auth.onAuthStateChange(() =>
+      fetchData()
+    );
+    return () => authSub.subscription.unsubscribe();
+  }, []);
+
+  // ===== REALTIME LISTENERS =====
+  useEffect(() => {
+    if (!empresa?.id) return;
+
+    // 🔁 Atualiza empresa em tempo real
+    const empSub = supabase
+      .channel("empresa-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "empresas",
+          filter: `id=eq.${empresa.id}`,
+        },
+        (payload) => {
+          const novaEmpresa = payload.new as any;
+          setEmpresa((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  nome: novaEmpresa.nome,
+                  cnpj: novaEmpresa.cnpj,
+                  dominio: novaEmpresa.dominio,
+                  logoUrl: novaEmpresa.logoUrl,
+                  telefone: novaEmpresa.telefone,
+                }
+              : prev
+          );
+        }
+      )
+      .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      supabase.removeChannel(empSub);
     };
-  }, []);
+  }, [empresa?.id]);
+
+  // 🔁 Atualiza user quando Auth muda (nome/email)
+
+  // ===== MUTATORS =====
+  const updateLogoUrl = (url: string) => {
+    setEmpresa((prev) => (prev ? { ...prev, logoUrl: url } : prev));
+  };
+
+  const updateUserData = ({
+    nome,
+    email,
+  }: {
+    nome?: string;
+    email?: string;
+  }) => {
+    setUser((prev) =>
+      prev
+        ? { ...prev, nome: nome ?? prev.nome, email: email ?? prev.email }
+        : prev
+    );
+  };
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -128,7 +200,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, empresa, cargo, loading, signOut }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        empresa,
+        cargo,
+        loading,
+        signOut,
+        updateLogoUrl,
+        updateUserData,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

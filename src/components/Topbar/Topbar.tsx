@@ -7,7 +7,7 @@ export default function Topbar() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // fecha ao clicar fora
+  // Fecha o dropdown ao clicar fora
   useEffect(() => {
     const fn = (ev: MouseEvent) => {
       if (ref.current && !ref.current.contains(ev.target as Node)) {
@@ -29,21 +29,33 @@ export default function Topbar() {
 
   return (
     <header className="flex items-center justify-between bg-[#2e3338] text-white h-14 px-4 border-b border-[#1c1f22]">
-      {/* Esquerda: Empresa - CNPJ */}
+      {/* 🔹 Esquerda: Empresa - CNPJ */}
       <div className="flex items-center gap-2">
         <span className="font-semibold">{companyName}</span>
         <span className="text-sm text-gray-400">- {cnpj}</span>
       </div>
 
-      {/* Direita: UserMenu */}
+      {/* 🔹 Direita: Avatar + Nome do Usuário */}
       <div className="relative" ref={ref}>
         <button
           onClick={() => setOpen((o) => !o)}
-          className="flex items-center gap-2 bg-transparent border-none"
+          className="flex items-center gap-2 bg-transparent border-none focus:outline-none"
         >
-          <div className="w-9 h-9 rounded-full bg-yellow-500 text-black font-bold flex items-center justify-center">
-            {initials}
+          {/* Avatar / Logo */}
+          <div className="w-9 h-9 rounded-full overflow-hidden bg-[#2e3338] border border-gray-700 flex items-center justify-center text-sm font-bold text-gray-300">
+            {empresa?.logoUrl ? (
+              <img
+                key={empresa.logoUrl}
+                src={`${empresa.logoUrl}?t=${Date.now()}`}
+                alt="Logo da Empresa"
+                className="object-cover w-full h-full"
+              />
+            ) : (
+              <span>{initials}</span>
+            )}
           </div>
+
+          {/* Infos do usuário */}
           <div className="flex flex-col items-start leading-none">
             <span className="text-sm font-semibold">
               {loading ? "Carregando..." : user?.nome ?? "Usuário"}
