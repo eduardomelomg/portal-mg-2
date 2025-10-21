@@ -4,6 +4,7 @@ import RecoverPassword from "./pages/auth/RecoverPassword";
 import PrivateRoute from "./routes/PrivateRoute";
 import AdminLayout from "./layouts/AdminLayout";
 import AdminDashboard from "./pages/admin/Dashboard";
+import Usuarios from "./pages/Usuarios/Usuarios";
 import MinhaConta from "./pages/MinhaConta/MinhaConta";
 import ClientDashboard from "./pages/client/Dashboard";
 
@@ -24,14 +25,16 @@ export default function App() {
             </PrivateRoute>
           }
         >
-          {/* Rota padrão (dashboard principal) */}
           <Route index element={<AdminDashboard />} />
-
-          {/* Outras rotas do painel */}
           <Route path="minha-conta" element={<MinhaConta />} />
-          {/* Exemplo futuro: */}
-          {/* <Route path="empresas" element={<Empresas />} /> */}
-          {/* <Route path="envios" element={<Envios />} /> */}
+          <Route
+            path="usuarios"
+            element={
+              <PrivateRoute allowedRoles={["admin", "gestor"]}>
+                <Usuarios />
+              </PrivateRoute>
+            }
+          />
         </Route>
 
         {/* === Painel CLIENTE === */}

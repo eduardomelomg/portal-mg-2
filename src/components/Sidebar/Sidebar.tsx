@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   FaHome,
   FaUpload,
@@ -7,6 +7,7 @@ import {
   FaChevronLeft,
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
 import styles from "./Sidebar.module.css";
 import LogoFechada from "../../assets/icon.png";
 import LogoAberta from "../../assets/LogoMenorMG.png";
@@ -15,15 +16,21 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { cargo } = useAuth(); // 👈 pega o cargo do contexto
 
-  const items = [
-    { icon: <FaHome />, label: "Página Inicial", path: "/admin" },
-    { icon: <FaUpload />, label: "Arquivos Enviados", path: "/admin/envios" },
-    { icon: <FaUserFriends />, label: "Usuários", path: "/admin/empresas" },
-  ];
+  const isManager = cargo === "admin" || cargo === "gestor";
+
+  const items = useMemo(
+    () => [
+      { icon: <FaHome />, label: "Página Inicial", path: "/admin", show: true },
+      { icon: <FaUpload />, label: "Arquivos Enviados", path: "/admin/envios", show: true },
+      // ✅ só mostra para admin/gestor
+      { icon: <FaUserFriends />, label: "Usuários", path: "/admin/usuarios", show: isManager },
+    ],
+    [isManager]
+  );
 
   return (
-    // 🔥 Qualquer clique na sidebar abre/fecha o menu
     <aside
       className={styles.sidebar}
       style={{ width: isOpen ? "14rem" : "4rem" }}
@@ -31,7 +38,6 @@ export default function Sidebar() {
       title={isOpen ? "Fechar menu" : "Abrir menu"}
     >
       <div className={styles.top}>
-        {/* Botão de toggle (não propaga o clique pra evitar duplo toggle) */}
         <button
           className={styles.toggle}
           onClick={(e) => {
@@ -43,20 +49,16 @@ export default function Sidebar() {
         </button>
 
         <nav
-          className={`${styles.menu} ${
-            isOpen ? styles.menuOpen : styles.menuClosed
-          }`}
+          className={`${styles.menu} ${isOpen ? styles.menuOpen : styles.menuClosed}`}
         >
-          {items.map((item) => (
+          {items.filter(i => i.show).map((item) => (
             <button
               key={item.label}
               onClick={(e) => {
-                e.stopPropagation(); // 👈 não fecha ao clicar no item
+                e.stopPropagation();
                 navigate(item.path);
               }}
-              className={`${styles.menuItem} ${
-                pathname === item.path ? styles.menuItemActive : ""
-              }`}
+              className={`${styles.menuItem} ${pathname === item.path ? styles.menuItemActive : ""}`}
               title={!isOpen ? item.label : undefined}
             >
               <span className={styles.icon}>{item.icon}</span>
@@ -66,7 +68,6 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* Logo inferior — também protegida do toggle global */}
       <div
         className={styles.logo}
         onClick={(e) => {

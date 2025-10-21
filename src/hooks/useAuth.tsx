@@ -40,22 +40,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [cargo, setCargo] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // ===== FETCH INICIAL =====
+  // ============================================================
+  // === FETCH INICIAL E LOGIN / LOGOUT LISTENER
+  // ============================================================
   useEffect(() => {
+    let mounted = true;
+
     const fetchData = async () => {
+      console.log("🟡 [useAuth] Iniciando fetchData()");
       setLoading(true);
-      console.log("🔄 Iniciando fetchData()...");
 
       try {
         const { data, error } = await supabase.auth.getUser();
-        console.log("👤 Resultado getUser:", { data, error });
-
         if (error || !data?.user) {
-          console.warn("⚠️ Nenhum usuário logado, redirecionando...");
-          setUser(null);
-          setEmpresa(null);
-          setCargo(null);
-          setLoading(false);
+          console.warn("🔴 [useAuth] Nenhum usuário autenticado.");
+          if (mounted) {
+            setUser(null);
+            setEmpresa(null);
+            setCargo(null);
+            setLoading(false);
+          }
           return;
         }
 
@@ -66,47 +70,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           u.email?.split("@")[0] ||
           "Usuário";
 
-        setUser({
-          id: u.id,
-          email: u.email ?? "",
-          nome,
-        });
+        if (mounted) {
+          setUser({
+            id: u.id,
+            email: u.email ?? "",
+            nome,
+          });
+        }
 
-        console.log("✅ Usuário autenticado:", nome);
-
-        // ===== Busca vínculo empresa =====
-        const { data: vinculo, error: vinculoError } = await supabase
+        const { data: vinculo } = await supabase
           .from("usuarios_empresas")
           .select("empresa_id, cargo")
           .eq("usuario_id", u.id)
           .eq("ativo", true)
           .single();
 
-        console.log("🏢 Vínculo empresa:", { vinculo, vinculoError });
-
-        if (vinculoError || !vinculo) {
-          console.warn("⚠️ Nenhum vínculo ativo encontrado");
-          setEmpresa(null);
-          setCargo(null);
-          setLoading(false);
+        if (!vinculo) {
+          console.warn(
+            "⚠️ [useAuth] Nenhum vínculo encontrado para o usuário."
+          );
           return;
         }
 
-        setCargo(vinculo.cargo ?? null);
+        if (mounted) setCargo(vinculo.cargo ?? null);
 
-        // ===== Busca empresa =====
-        const { data: emp, error: empError } = await supabase
+        const { data: emp } = await supabase
           .from("empresas")
           .select("id, nome, cnpj, dominio, logoUrl, telefone")
           .eq("id", vinculo.empresa_id)
           .single();
 
-        console.log("🏬 Empresa carregada:", { emp, empError });
-
-        if (empError || !emp) {
-          console.error("❌ Erro ao buscar empresa:", empError);
-          setEmpresa(null);
-        } else {
+        if (mounted && emp) {
           setEmpresa({
             id: emp.id,
             nome: emp.nome,
@@ -117,26 +111,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
         }
       } catch (err) {
-        console.error("🔥 Erro inesperado em fetchData():", err);
+        console.error("Erro ao carregar dados do Auth:", err);
       } finally {
-        console.log("🏁 Finalizando fetchData()");
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
-    fetchData();
+    // 🔹 só roda se user for null (não logado ainda)
+    if (!user) {
+      fetchData();
+    }
 
-    const { data: authSub } = supabase.auth.onAuthStateChange(() =>
-      fetchData()
+    // 🔁 escuta eventos do Supabase, mas sem refazer fetch desnecessário
+    const { data: authSub } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session) {
+          console.log("🟢 [useAuth] Sessão ativa detectada.");
+          fetchData();
+        } else {
+          console.warn("🔴 [useAuth] Sessão finalizada.");
+          setUser(null);
+          setEmpresa(null);
+          setCargo(null);
+        }
+      }
     );
-    return () => authSub.subscription.unsubscribe();
+
+    return () => {
+      mounted = false;
+      authSub.subscription.unsubscribe();
+    };
   }, []);
 
-  // ===== REALTIME LISTENERS =====
+  // ============================================================
+  // === REALTIME: ATUALIZAÇÃO DA EMPRESA
+  // ============================================================
   useEffect(() => {
     if (!empresa?.id) return;
 
-    // 🔁 Atualiza empresa em tempo real
+    console.log("🔁 Escutando realtime da empresa:", empresa.id);
+
     const empSub = supabase
       .channel("empresa-changes")
       .on(
@@ -149,6 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         (payload) => {
           const novaEmpresa = payload.new as any;
+          console.log("🟢 Atualização realtime recebida:", novaEmpresa);
+
           setEmpresa((prev) =>
             prev
               ? {
@@ -170,9 +186,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [empresa?.id]);
 
-  // 🔁 Atualiza user quando Auth muda (nome/email)
-
-  // ===== MUTATORS =====
+  // ============================================================
+  // === MUTATORS (Atualizações locais)
+  // ============================================================
   const updateLogoUrl = (url: string) => {
     setEmpresa((prev) => (prev ? { ...prev, logoUrl: url } : prev));
   };
@@ -191,6 +207,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  // ============================================================
+  // === LOGOUT
+  // ============================================================
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -199,6 +218,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = "/login";
   };
 
+  // ============================================================
+  // === CONTEXTO
+  // ============================================================
   return (
     <AuthContext.Provider
       value={{
@@ -216,6 +238,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// ============================================================
+// === HOOK DE USO
+// ============================================================
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (!context) {
