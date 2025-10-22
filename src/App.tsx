@@ -6,6 +6,7 @@ import AdminLayout from "./layouts/AdminLayout";
 import AdminDashboard from "./pages/admin/Dashboard";
 import Usuarios from "./pages/Usuarios/Usuarios";
 import MinhaConta from "./pages/MinhaConta/MinhaConta";
+import CriarSenha from "./pages/auth/CriarSenha";
 import ClientDashboard from "./pages/client/Dashboard";
 
 export default function App() {
@@ -36,16 +37,9 @@ export default function App() {
             }
           />
         </Route>
+        <Route path="/criar-senha" element={<CriarSenha />} />
 
-        {/* === Painel CLIENTE === */}
-        <Route
-          path="/cliente"
-          element={
-            <PrivateRoute>
-              <ClientDashboard />
-            </PrivateRoute>
-          }
-        />
+        {/* {/* === Painel CLIENTE === <Routepath="/cliente"element={<PrivateRoute><ClientDashboard /></PrivateRoute>}/>*/}
 
         {/* === Fallback === */}
         <Route path="*" element={<Login />} />

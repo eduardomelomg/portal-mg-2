@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { supabase } from "../../services/supabase"; // caminho correto
 import { useNavigate } from "react-router-dom";
+import logo from "../../assets/LogoMenorMG.png";
 
 export default function Login() {
   const [accessType, setAccessType] = useState<"client" | "admin">("client");
@@ -78,7 +79,7 @@ export default function Login() {
       <div className="bg-[#2e3338] p-8 rounded-lg w-full max-w-md shadow-lg">
         {/* Logo */}
         <div className="flex justify-center mb-4">
-          <img src="/logo.png" alt="Logo" className="h-14" />
+          <img src="../../assets/LogoMenorMG.png" alt="Logo" className="h-14" />
         </div>
 
         {/* Título */}
