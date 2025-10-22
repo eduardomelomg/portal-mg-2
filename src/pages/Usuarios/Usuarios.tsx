@@ -31,7 +31,7 @@ export default function Usuarios() {
     return () => clearTimeout(timeout);
   }, [search]);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  const API_URL = process.env.VITE_API_URL || "http://localhost:5000";
 
   const podeCriar = cargo === "admin" || cargo === "gestor";
 

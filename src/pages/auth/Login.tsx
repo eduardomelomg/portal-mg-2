@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { supabase } from "../../services/supabase"; // caminho correto
 import { useNavigate } from "react-router-dom";
-import logo from "../../assets/LogoMenorMG.png";
+//import logo from "../../assets/LogoMenorMG.png";
 
 export default function Login() {
   const [accessType, setAccessType] = useState<"client" | "admin">("client");

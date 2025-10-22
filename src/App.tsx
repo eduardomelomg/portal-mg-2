@@ -39,8 +39,6 @@ export default function App() {
         </Route>
         <Route path="/criar-senha" element={<CriarSenha />} />
 
-        {/* {/* === Painel CLIENTE === <Routepath="/cliente"element={<PrivateRoute><ClientDashboard /></PrivateRoute>}/>*/}
-
         {/* === Fallback === */}
         <Route path="*" element={<Login />} />
       </Routes>
