@@ -7,7 +7,6 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import Usuarios from "./pages/Usuarios/Usuarios";
 import MinhaConta from "./pages/MinhaConta/MinhaConta";
 import CriarSenha from "./pages/auth/CriarSenha";
-import ClientDashboard from "./pages/client/Dashboard";
 
 export default function App() {
   return (

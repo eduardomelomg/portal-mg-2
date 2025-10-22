@@ -119,7 +119,7 @@ export default function MinhaConta() {
     };
   }, [logoPreview]);
 
-  const podeEditar = usuario.cargo === "admin" || usuario.cargo === "gestor";
+  //const podeEditar = usuario.cargo === "admin" || usuario.cargo === "gestor";
 
   // Upload da logo
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

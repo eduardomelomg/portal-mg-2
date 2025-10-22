@@ -6,7 +6,7 @@ type Props = {
 };
 
 export default function UserDropdown({ onClose }: Props) {
-  const { signOut, empresa } = useAuth();
+  const { signOut } = useAuth();
   const navigate = useNavigate();
 
   return (
