@@ -24,5 +24,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src", "frontend/src/api", "frontend/src/routes", "frontend/src/services", "frontend/src/pages/admin", "frontend/src/pages/MinhaConta", "frontend/src/pages/Usuarios", "frontend/src/pages/MinhaConta", "frontend/src/server.ts", "frontend/src/main.tsx", "frontend/src/App.tsx", "frontend/src/components/Topbar", "frontend/src/components/Sidebar"]
 }

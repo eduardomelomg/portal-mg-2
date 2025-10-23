@@ -1,4 +1,4 @@
-import { supabase } from "../../services/supabase";
+import { supabase } from "../../../frontend/src/services/supabase";
 import { useNavigate } from "react-router-dom";
 
 export default function ClientDashboard() {
