@@ -2,25 +2,21 @@ import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import type { Request, Response } from "express";
 
-// ✅ Garante que o dotenv seja carregado antes de criar o cliente
-dotenv.config({ path: "./.env", override: true });
+dotenv.config({ path: "./.env" });
 
-const SUPABASE_URL =
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+/** Tipos para forçar o TS a conhecer o shape da resposta */
+type EmpresaRef = { nome?: string | null } | null | undefined;
+type Vinculo = {
+  usuario_id: string;
+  empresa_id: string | null;
+  cargo?: string | null;
+  /** relação opcional; depende de FK nomeada como "empresas" */
+  empresas?: EmpresaRef;
+  /** fallback caso você tenha uma coluna com o nome direto */
+  empresa_nome?: string | null;
+};
 
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  console.error(
-    "❌ Erro: SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausentes no .env"
-  );
-  console.error("Valor atual de SUPABASE_URL:", SUPABASE_URL);
-  process.exit(1);
-}
-
-const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
-interface UsuarioCompleto {
+type UsuarioCompleto = {
   id: string;
   email: string;
   nome: string;
@@ -28,7 +24,20 @@ interface UsuarioCompleto {
   empresa_id: string | null;
   empresa_nome: string;
   created_at: string;
+};
+
+const SUPABASE_URL =
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error(
+    "❌ SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausentes no .env (backend/.env)"
+  );
+  process.exit(1);
 }
+
+const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
 export const listUsers = async (req: Request, res: Response) => {
   try {
@@ -38,74 +47,77 @@ export const listUsers = async (req: Request, res: Response) => {
       search?: string;
     };
 
-    // 🔹 Busca todos os usuários cadastrados no Supabase Auth
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers();
-    if (error) {
-      console.error("Erro ao listar usuários:", error.message);
-      return res.status(400).json({ error: error.message });
+    // 1) Usuários do Auth
+    const { data: authData, error: authErr } =
+      await supabaseAdmin.auth.admin.listUsers();
+
+    if (authErr) {
+      console.error("Erro ao listar usuários:", authErr.message);
+      return res.status(400).json({ error: authErr.message });
     }
 
-    const allUsers = data?.users || [];
+    const allUsers = authData?.users ?? [];
 
-    // 🔹 Busca vínculos de usuários às empresas
-    const { data: vinculos, error: vincError } = await supabaseAdmin
+    // 2) Vínculos usuário-empresa (tenta trazer o nome via relação "empresas")
+    const { data: vinculosRaw, error: vincErr } = await supabaseAdmin
       .from("usuarios_empresas")
-      .select("usuario_id, empresa_id, cargo, empresa_nome, empresas(nome)");
+      .select("usuario_id, empresa_id, cargo, empresas(nome)");
 
-    if (vincError) {
-      console.error("Erro ao buscar vínculos:", vincError.message);
-      return res.status(400).json({ error: vincError.message });
+    if (vincErr) {
+      console.error("Erro ao buscar vínculos:", vincErr.message);
+      return res.status(400).json({ error: vincErr.message });
     }
 
-    // 🔹 Monta os dados completos
-    const usuariosCompletos: UsuarioCompleto[] = allUsers.map((user) => {
-      const vinculo = vinculos?.find((v) => v.usuario_id === user.id);
+    // Força tipagem para o TS conhecer "empresas?.nome"
+    const vinculos = (vinculosRaw ?? []) as Vinculo[];
 
-      // ✅ Garante que user_metadata exista
-      const userMeta = (user.user_metadata || {}) as Record<string, any>;
+    // 3) Monta payload
+    const usuariosCompletos: UsuarioCompleto[] = allUsers.map((user) => {
+      const vinculo = vinculos.find((v) => v.usuario_id === user.id);
+
+      // Metadados do usuário podem variar (name, full_name, nome…)
+      const meta = (user.user_metadata || {}) as Record<string, any>;
+      const nome =
+        (typeof meta.name === "string" && meta.name.trim()) ||
+        meta.full_name ||
+        meta.nome ||
+        "—";
+
+      // Empresa: tenta relação "empresas.nome" e, se não vier, usa "empresa_nome" da tabela;
+      // se nenhum vier, usa "—"
+      const empresaNome =
+        vinculo?.empresas?.nome ?? vinculo?.empresa_nome ?? "—";
 
       return {
         id: user.id,
-        email: user.email ?? "—",
-        nome:
-          typeof userMeta.name === "string" && userMeta.name.trim() !== ""
-            ? userMeta.name
-            : userMeta.full_name || userMeta.nome || "—",
-        cargo: vinculo?.cargo || userMeta.cargo || userMeta.role || "—",
-        empresa_id: vinculo?.empresa_id || null,
-        empresa_nome:
-          (vinculo as any)?.empresas?.nome ||
-          (vinculo as any)?.empresa_nome ||
-          "—",
-
+        email: user.email ?? "",
+        nome,
+        cargo: vinculo?.cargo || meta.cargo || "—",
+        empresa_id: vinculo?.empresa_id ?? null,
+        empresa_nome: empresaNome,
         created_at: user.created_at,
       };
     });
 
-    // 🔹 Filtro por empresa (somente se não for admin)
-    const filtradosPorEmpresa = usuariosCompletos.filter((usuario) => {
-      if (cargo !== "admin" && empresaId) {
-        return usuario.empresa_id === empresaId;
-      }
-      return true;
-    });
+    // 4) Filtros
+    const porEmpresa =
+      cargo !== "admin" && empresaId
+        ? usuariosCompletos.filter((u) => u.empresa_id === empresaId)
+        : usuariosCompletos;
 
-    // 🔹 Filtro de busca (por nome ou e-mail)
-    const filtradosPorBusca = filtradosPorEmpresa.filter((usuario) => {
-      if (search) {
-        const termo = search.toLowerCase();
-        return (
-          usuario.email.toLowerCase().includes(termo) ||
-          usuario.nome.toLowerCase().includes(termo)
-        );
-      }
-      return true;
-    });
+    const porBusca = !search
+      ? porEmpresa
+      : porEmpresa.filter((u) => {
+          const termo = search.toLowerCase();
+          return (
+            (u.email || "").toLowerCase().includes(termo) ||
+            (u.nome || "").toLowerCase().includes(termo)
+          );
+        });
 
-    // ✅ Retorna o resultado final
-    res.status(200).json({ users: filtradosPorBusca });
-  } catch (err: any) {
+    return res.status(200).json({ usuarios: porBusca });
+  } catch (err) {
     console.error("Erro inesperado:", err);
-    res.status(500).json({ error: "Erro interno no servidor" });
+    return res.status(500).json({ error: "Erro interno no servidor" });
   }
 };

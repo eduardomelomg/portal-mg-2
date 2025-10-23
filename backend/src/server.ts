@@ -1,24 +1,39 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
+import 'dotenv/config';
+import { createApp } from './app';
 
-import { inviteUser } from "./api/invite-user";
-import { listUsers } from "./api/list-users";
+const BASE_PORT = Number(process.env.PORT) || 5050;
 
-dotenv.config();
+function tryListen(port: number) {
+  const app = createApp();
+  return new Promise<{ port: number }>((resolve, reject) => {
+    const server = app.listen(port, () => {
+      console.log(`✅ Backend rodando em http://localhost:${port}`);
+      resolve({ port });
+    });
+    server.on('error', (err: any) => {
+      if (err?.code === 'EADDRINUSE') reject({ code: 'EADDRINUSE' });
+      else reject(err);
+    });
+  });
+}
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`✅ Backend rodando em http://localhost:${PORT}`);
-});
-
-app.use(cors());
-app.use(express.json());
-
-app.get("/api/users", listUsers);
-app.post("/api/invite-user", inviteUser);
-
-app.listen(PORT, () => {
-  console.log(`✅ Backend rodando em http://localhost:${PORT}`);
-});
+(async () => {
+  let port = BASE_PORT;
+  for (let i = 0; i < 10; i += 1) {
+    try {
+      const { port: used } = await tryListen(port);
+      if (used !== BASE_PORT) console.warn(`⚠️ Porta ${BASE_PORT} indisponível. Usando ${used}.`);
+      return;
+    } catch (e: any) {
+      if (e?.code === 'EADDRINUSE') {
+        console.warn(`⚠️ Porta ${port} em uso. Tentando ${port + 1}...`);
+        port += 1;
+        continue;
+      }
+      console.error('Erro ao iniciar servidor:', e);
+      process.exit(1);
+    }
+  }
+  console.error('❌ Não foi possível iniciar servidor.');
+  process.exit(1);
+})();
