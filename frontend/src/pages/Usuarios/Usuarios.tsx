@@ -19,7 +19,7 @@ export default function Usuarios() {
   const [search, setSearch] = useState("");
 
   // ✅ Usa apenas localhost para o backend
-  const API_URL = "http://localhost:5050";
+  const API_URL = "http://localhost:5051";
 
   // Novo usuário (para convites)
   const [novoUsuario, setNovoUsuario] = useState({

@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { createApp } from './app';
 
-const BASE_PORT = Number(process.env.PORT) || 5050;
+const BASE_PORT = Number(process.env.PORT) || 5051;
 
 function tryListen(port: number) {
   const app = createApp();
