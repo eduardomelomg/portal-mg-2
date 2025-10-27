@@ -18,10 +18,8 @@ export default function Usuarios() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
-  // ✅ Usa apenas localhost para o backend
   const API_URL = "http://localhost:5051";
 
-  // Novo usuário (para convites)
   const [novoUsuario, setNovoUsuario] = useState({
     nome: "",
     email: "",
@@ -30,22 +28,29 @@ export default function Usuarios() {
 
   const podeCriar = cargo === "admin" || cargo === "gestor";
 
-  // === Carrega usuários ===
   const carregarUsuarios = async () => {
+    if (!empresa?.id || !cargo) {
+      console.warn("⛔ empresaId ou cargo ausente. Ignorando fetch.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
       const params = new URLSearchParams();
-      if (cargo) params.append("cargo", cargo);
-      if (empresa?.id) params.append("empresaId", empresa.id);
+      params.append("cargo", cargo);
+      params.append("empresaId", empresa.id);
       if (search) params.append("search", search);
 
       const res = await fetch(`${API_URL}/api/users?${params.toString()}`);
-      if (!res.ok) throw new Error("Erro ao buscar usuários");
-
       const data = await res.json();
-      setUsuarios(data.usuarios || []);
+
+      if (!res.ok || !Array.isArray(data)) {
+        throw new Error("Erro ao buscar usuários");
+      }
+
+      setUsuarios(data || []);
     } catch (err: any) {
       console.error("❌ Erro ao carregar usuários:", err.message);
       setError(err.message);
@@ -54,7 +59,6 @@ export default function Usuarios() {
     }
   };
 
-  // === Convida novo usuário ===
   const handleAddUsuario = async () => {
     if (!novoUsuario.nome || !novoUsuario.email) {
       alert("Preencha nome e e-mail.");
@@ -69,7 +73,9 @@ export default function Usuarios() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...novoUsuario,
+          nome: novoUsuario.nome,
+          email: novoUsuario.email,
+          cargo: novoUsuario.cargo,
           empresaId: empresa?.id,
         }),
       });
@@ -88,22 +94,28 @@ export default function Usuarios() {
     }
   };
 
-  // Atualiza lista quando o search muda
+  // Debug apenas
   useEffect(() => {
+    console.log("🔍 Params para /api/users:", {
+      empresaId: empresa?.id,
+      cargo,
+      search,
+    });
+  }, [empresa?.id, cargo, search]);
+
+  // Carrega usuários ao iniciar (e ao mudar search)
+  useEffect(() => {
+    if (!empresa?.id || !cargo) return;
+
     const timeout = setTimeout(() => {
       carregarUsuarios();
-    }, 500);
-    return () => clearTimeout(timeout);
-  }, [search]);
+    }, 300);
 
-  // Carrega usuários ao montar
-  useEffect(() => {
-    carregarUsuarios();
-  }, []);
+    return () => clearTimeout(timeout);
+  }, [search, empresa?.id, cargo]);
 
   return (
     <div className="text-white space-y-8">
-      {/* Cabeçalho */}
       <div>
         <h1 className="text-2xl font-bold">Usuários</h1>
         <p className="text-gray-400">
@@ -111,11 +123,9 @@ export default function Usuarios() {
         </p>
       </div>
 
-      {/* Novo usuário */}
       {podeCriar && (
         <section className="bg-[#2b2f33] p-6 rounded-lg space-y-4">
           <h2 className="text-xl font-semibold">Convidar Novo Usuário</h2>
-
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm mb-1">Nome</label>
@@ -167,7 +177,6 @@ export default function Usuarios() {
         </section>
       )}
 
-      {/* Lista de usuários */}
       <section className="bg-[#2b2f33] p-6 rounded-lg space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Lista de Usuários</h2>

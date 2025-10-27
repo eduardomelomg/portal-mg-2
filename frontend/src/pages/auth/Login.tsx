@@ -1,49 +1,59 @@
 import { useState } from "react";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { supabase } from "../../services/supabase"; // caminho correto
-import { useNavigate } from "react-router-dom";
 //import logo from "../../assets/LogoMenorMG.png";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../../services/supabase";
+
+type Access = "client" | "admin";
 
 export default function Login() {
-  const [accessType, setAccessType] = useState<"client" | "admin">("client");
+  const [accessType, setAccessType] = useState<Access>("client");
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>(
     {}
   );
-  const [loading, setLoading] = useState(false);
-  const [authError, setAuthError] = useState("");
   const navigate = useNavigate();
 
-  const getWarningMessage = () =>
+  const validate = () => {
+    const next: typeof errors = {};
+    if (!email.trim()) next.email = "O e-mail é obrigatório.";
+    else if (!/^\S+@\S+\.\S+$/.test(email))
+      next.email = "Formato de e-mail inválido.";
+
+    if (!password.trim()) next.password = "A senha é obrigatória.";
+    else if (password.length < 6)
+      next.password = "A senha deve ter no mínimo 6 caracteres.";
+
+    // domínio obrigatório quando o usuário escolhe Admin
+    if (
+      accessType === "admin" &&
+      email &&
+      !email.endsWith("@mendoncagalvao.com.br")
+    ) {
+      next.email = "Para acesso Admin, use e-mail @mendoncagalvao.com.br.";
+    }
+
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const warningText =
     accessType === "admin"
       ? "Utilize seu e-mail e senha Mendonça Galvão."
       : "Utilize a senha criada por e-mail para realizar o acesso.";
 
-  const validateForm = () => {
-    const newErrors: typeof errors = {};
-    if (!email.trim()) {
-      newErrors.email = "O e-mail é obrigatório.";
-    } else if (!/^\S+@\S+\.\S+$/.test(email)) {
-      newErrors.email = "Formato de e-mail inválido.";
-    }
-    if (!password.trim()) {
-      newErrors.password = "A senha é obrigatória.";
-    } else if (password.length < 6) {
-      newErrors.password = "A senha deve ter no mínimo 6 caracteres.";
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleLogin = async () => {
-    if (!validateForm()) return;
-
-    setLoading(true);
-    setAuthError("");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    if (!validate()) return;
 
     try {
+      setLoading(true);
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -55,18 +65,25 @@ export default function Login() {
         return;
       }
 
-      if (data?.user) {
-        const isAdmin = data.user.email?.endsWith("@mendoncagalvao.com.br");
-        if (isAdmin && accessType === "admin") {
-          navigate("/admin");
-        } else if (!isAdmin && accessType === "client") {
-          navigate("/cliente");
-        } else {
-          setAuthError("Tipo de acesso incorreto para este usuário.");
-          await supabase.auth.signOut();
-        }
+      if (!data?.user) {
+        setAuthError("Falha ao autenticar.");
+        return;
       }
-    } catch (err) {
+
+      const isAdmin = data.user.email?.endsWith("@mendoncagalvao.com.br");
+
+      if (accessType === "admin") {
+        if (!isAdmin) {
+          setAuthError("Esta conta não possui acesso Admin.");
+          await supabase.auth.signOut();
+          return;
+        }
+        navigate("/admin", { replace: true });
+      } else {
+        // cliente (ajuste a rota se necessário)
+        navigate("/cliente", { replace: true });
+      }
+    } catch (err: any) {
       console.error(err);
       setAuthError("Erro inesperado ao tentar autenticar.");
     } finally {
@@ -75,131 +92,132 @@ export default function Login() {
   };
 
   return (
-    <div className="w-screen h-screen flex items-center justify-center bg-[#1c1f22] text-white px-4">
-      <div className="bg-[#2e3338] p-8 rounded-lg w-full max-w-md shadow-lg">
-        {/* Logo */}
-        <div className="flex justify-center mb-4">
-          <img src="../../assets/LogoMenorMG.png" alt="Logo" className="h-14" />
+    <div className="min-h-screen bg-[#0f1215] flex items-center justify-center px-4 text-slate-100">
+      <div className="w-full max-w-md rounded-xl border border-[#2a2f35] bg-[#1b1f24] shadow-2xl/20 shadow-black/30">
+        {/* Logo + título */}
+        <div className="px-6 pt-6 text-center">
+          {/* Coloque sua logo em /public/logo.svg ou ajuste o src */}
+          {/*<img src={logo} alt="Logo" className="mx-auto h-10 w-auto" />*/}
+          <h1 className="mt-4 text-2xl font-bold tracking-tight">Login</h1>
+          <p className="mt-2 text-sm text-slate-400">
+            Escolha o tipo de acesso e entre com suas credenciais
+          </p>
         </div>
 
-        {/* Título */}
-        <h2 className="text-2xl font-semibold text-center mb-2">Login</h2>
-        <p className="text-sm text-center mb-6 text-gray-300">
-          Escolha o tipo de acesso e entre com suas credenciais
-        </p>
-
-        {/* Toggle Acesso */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setAccessType("client")}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition ${
-              accessType === "client"
-                ? "bg-yellow-500 text-black"
-                : "bg-gray-700 text-white"
-            }`}
-          >
-            Acesso Geral
-          </button>
-          <button
-            onClick={() => setAccessType("admin")}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition ${
-              accessType === "admin"
-                ? "bg-yellow-500 text-black"
-                : "bg-gray-700 text-white"
-            }`}
-          >
-            Admin
-          </button>
-        </div>
-
-        {/* E-mail */}
-        <div className="mb-4">
-          <label htmlFor="email" className="text-sm block mb-1">
-            E-mail
-          </label>
-          <input
-            id="email"
-            type="email"
-            placeholder="Digite seu e-mail"
-            className={`w-full p-2 rounded-md bg-black border ${
-              errors.email ? "border-red-500" : "border-gray-500"
-            } text-white placeholder-gray-400`}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          {errors.email && (
-            <p className="text-red-400 text-sm mt-1">{errors.email}</p>
-          )}
-        </div>
-
-        {/* Senha */}
-        <div className="mb-2">
-          <label htmlFor="password" className="text-sm block mb-1">
-            Senha
-          </label>
-          <div className="relative">
-            <input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              placeholder="Digite sua senha"
-              className={`w-full p-2 pr-10 rounded-md bg-black border ${
-                errors.password ? "border-red-500" : "border-gray-500"
-              } text-white placeholder-gray-400`}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+        {/* Toggle de acesso */}
+        <div className="px-6 mt-5">
+          <div className="grid grid-cols-2 gap-2 bg-[#232931] rounded-md p-1">
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-3 flex items-center justify-center text-gray-400 hover:text-white focus:outline-none"
-              style={{
-                background: "transparent",
-                border: "none",
-                padding: 0,
-                margin: 0,
-                lineHeight: 0,
-              }}
-              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              onClick={() => setAccessType("client")}
+              className={
+                "h-9 rounded-md text-sm font-semibold transition " +
+                (accessType === "client"
+                  ? "bg-[#f5c518] text-black"
+                  : "text-slate-300 hover:bg-[#2a3036]")
+              }
             >
-              {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+              Acesso Geral
+            </button>
+            <button
+              type="button"
+              onClick={() => setAccessType("admin")}
+              className={
+                "h-9 rounded-md text-sm font-semibold transition " +
+                (accessType === "admin"
+                  ? "bg-[#f5c518] text-black"
+                  : "text-slate-300 hover:bg-[#2a3036]")
+              }
+            >
+              Admin
             </button>
           </div>
-          {errors.password && (
-            <p className="text-red-400 text-sm mt-1">{errors.password}</p>
-          )}
         </div>
 
-        {/* Aviso */}
-        <p className="mt-3 text-sm text-yellow-100 bg-yellow-700 px-4 py-3 rounded-md mb-6">
-          {getWarningMessage()}
-        </p>
+        {/* Formulário */}
+        <form onSubmit={handleSubmit} className="px-6 pb-6 pt-4 space-y-4">
+          {/* E-mail */}
+          <div>
+            <label htmlFor="email" className="text-sm text-slate-300">
+              E-mail
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="seu@email.com"
+              className={`mt-1 block w-full rounded-md border bg-[#0f1215] text-slate-100 placeholder:text-slate-500 sm:text-sm focus:ring-[#f5c518] focus:border-[#f5c518] ${
+                errors.email ? "border-red-500" : "border-[#2a2f35]"
+              }`}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-400">{errors.email}</p>
+            )}
+          </div>
 
-        {/* Erro de login */}
-        {authError && (
-          <p className="text-center text-red-400 text-sm mb-3">{authError}</p>
-        )}
+          {/* Senha */}
+          <div>
+            <label htmlFor="password" className="text-sm text-slate-300">
+              Senha
+            </label>
+            <div className="mt-1 relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="Sua senha"
+                className={`block w-full rounded-md border bg-[#0f1215] text-slate-100 placeholder:text-slate-500 pr-10 sm:text-sm focus:ring-[#f5c518] focus:border-[#f5c518] ${
+                  errors.password ? "border-red-500" : "border-[#2a2f35]"
+                }`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute inset-y-0 right-0 px-3 grid place-items-center text-slate-400 hover:text-slate-200"
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+            {errors.password && (
+              <p className="mt-1 text-sm text-red-400">{errors.password}</p>
+            )}
+          </div>
 
-        {/* Entrar */}
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className={`w-full py-2 rounded-md font-semibold transition ${
-            loading
-              ? "bg-gray-600 cursor-not-allowed"
-              : "bg-gradient-to-r from-yellow-400 to-yellow-600 text-black hover:opacity-90"
-          }`}
-        >
-          {loading ? "Entrando..." : "Entrar"}
-        </button>
+          {/* Aviso */}
+          <p className="text-xs text-slate-400">{warningText}</p>
 
-        <p className="mt-4 text-center text-sm text-gray-400">
-          <a
-            onClick={() => navigate("/recuperar-senha")}
-            className="underline hover:text-white cursor-pointer"
+          {/* Erro de autenticação */}
+          {authError && (
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              {authError}
+            </div>
+          )}
+
+          {/* Botão entrar */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-md bg-[#f5c518] px-4 py-2.5 text-sm font-semibold text-black shadow hover:bg-[#ffd23b] disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Esqueci minha senha
-          </a>
-        </p>
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
+
+          {/* link de recuperação */}
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => navigate("/recuperar-senha")}
+              className="text-sm text-sky-400 hover:text-sky-300 underline"
+            >
+              Esqueci minha senha
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

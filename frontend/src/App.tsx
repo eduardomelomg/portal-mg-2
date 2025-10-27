@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/auth/Login";
 import RecoverPassword from "./pages/auth/RecoverPassword";
 import PrivateRoute from "./routes/PrivateRoute";
@@ -12,11 +12,12 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* === Rotas públicas === */}
+        {/* públicas */}
         <Route path="/login" element={<Login />} />
         <Route path="/recuperar-senha" element={<RecoverPassword />} />
+        <Route path="/criar-senha" element={<CriarSenha />} />
 
-        {/* === Painel ADMIN (todas as subrotas usam o mesmo layout) === */}
+        {/* protegidas */}
         <Route
           path="/admin"
           element={
@@ -36,10 +37,9 @@ export default function App() {
             }
           />
         </Route>
-        <Route path="/criar-senha" element={<CriarSenha />} />
 
-        {/* === Fallback === */}
-        <Route path="*" element={<Login />} />
+        {/* fallback */}
+        <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </Router>
   );

@@ -1,4 +1,10 @@
+/* Tailwind v4 */
+@import "tailwindcss";
+
+/* suas variáveis/tema/componentes APÓS o Tailwind */
 @import "./variables.css";
+     /* se você tinha um arquivo com o tema/componentes */
+
 
 * {
   box-sizing: border-box;
